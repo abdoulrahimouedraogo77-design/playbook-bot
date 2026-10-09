@@ -30,18 +30,19 @@ def start_health_server():
     server.serve_forever()
 
 def fetch_solana_pairs():
-    """Interroge plusieurs endpoints DexScreener pour maximiser la couverture."""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     endpoints = [
         "https://api.dexscreener.com/latest/dex/search?q=SOL",
-        "https://api.dexscreener.com/latest/dex/search?q=pump",
-        "https://api.dexscreener.com/latest/dex/search?q=raydium"
+        "https://api.dexscreener.com/latest/dex/search?q=pump"
     ]
     seen_addresses = set()
     all_pairs = []
 
     for url in endpoints:
         try:
-            res = requests.get(url, timeout=8)
+            res = requests.get(url, headers=headers, timeout=10)
             if res.status_code == 200:
                 data = res.json().get('pairs', [])
                 for p in data:
@@ -75,7 +76,7 @@ def format_card(category_title, pair, age_hours, mc, liquidity):
         f"💧 **Liquidité :** ${liquidity:,.0f} \vert{} **Vol 24h :**${vol24h:,.0f}\n"
         f"⚡ **Tape (5m) :** 🟢 {buys5m} buys | 🔴 {sells5m} sells\n\n"
         f"📋 **CA :**\n`{address}`\n\n"
-        f"🔍 [DexScreener]({pair.get('url', '')}) | [Inspecter sur GMGN](https://gmgn.ai/sol/token/{address})"
+        f"🔗 [DexScreener]({pair.get('url', '')}) | [Inspecter sur GMGN](https://gmgn.ai/sol/token/{address})"
     )
 
 def execute_playbook_scan():
@@ -97,22 +98,21 @@ def execute_playbook_scan():
         mc = pair.get('marketCap') or pair.get('fdv') or 0
         liquidity = pair.get('liquidity', {}).get('usd', 0)
 
-        # Filtre anti-scam de base
-        if liquidity < 8000:
+        if liquidity < 6000:
             continue
 
-        # FILTRE 1 : Dip Runner (1-4 jours, MC 100k$- 350k$)
-        if (24 <= age_hours <= 96) and (100000 <= mc <= 350000):
+        # PROFIL 1 : Dip Runner (1-4 jours | MC 100k$- 350k$)
+        if (24 <= age_hours <= 96) and (80000 <= mc <= 400000):
             if len(dips_cards) < 2:
                 dips_cards.append(format_card("🎯 **PROFIL 1 : DIP RUNNER (1-4j | Rebound)**", pair, age_hours, mc, liquidity))
 
-        # FILTRE 2 : Noms Établis (7+ jours, MC < 25M$, Entrées 5M$-10M$)
-        elif (age_hours >= 168) and (mc <= 25000000) and (liquidity >= 100000):
+        # PROFIL 2 : Noms Établis (> 7 jours | MC < 25M$)
+        elif (age_hours >= 168) and (mc <= 25000000) and (liquidity >= 50000):
             if len(midcaps_cards) < 2:
                 midcaps_cards.append(format_card("💎 **PROFIL 2 : RUNNER ÉTABLI (7+ jours | Setup 50M+)**", pair, age_hours, mc, liquidity))
 
-        # FILTRE 3 : Lancements Frais avec Volume (< 7j, MC > 500k$)
-        elif (age_hours < 168) and (mc >= 500000) and (liquidity >= 30000):
+        # PROFIL 3 : Fresh Runners (< 7 jours | MC > 500k$)
+        elif (age_hours < 168) and (mc >= 500000) and (liquidity >= 25000):
             if len(fresh_runners_cards) < 2:
                 fresh_runners_cards.append(format_card("🚀 **PROFIL 3 : FRESH RUNNER (< 7j | Obj 10M-20M)**", pair, age_hours, mc, liquidity))
 
@@ -120,24 +120,18 @@ def execute_playbook_scan():
 
     if not total_results:
         return (
-            "📡 **SCAN PLAYBOOK EXÉCUTÉ**\n\n"
-            "Aucun token ne rentre dans les 3 configurations cibles pour le moment.\n"
-            "• Profil 1 : 24h-96h & MC 100k-350k\n"
+            "📡 **SCAN DU PLAYBOOK TERMINÉ**\n\n"
+            "Aucun token ne coche actuellement les 3 configurations cibles :\n"
+            "• Profil 1 : 24h-96h & MC 80k-400k\n"
             "• Profil 2 : > 7j & MC < 25M\n"
             "• Profil 3 : < 7j & MC > 500k\n\n"
-            "Renvoyez `s` dans quelques minutes pour réanalyser le flux."
+            "Renvoyez `s` dans quelques instants."
         )
 
     return "\n\n━━━━━━━━━━━━━━━\n\n".join(total_results)
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "⚡ **Playbook Scanner Solana Actif**\n\n"
-        "• Profil 1 : Dips post-dump (1-4 jours | 100k-350k MC)\n"
-        "• Profil 2 : Runners établis (> 7 jours | < 25M MC)\n"
-        "• Profil 3 : Fresh Runners (< 7 jours | > 500k MC)\n\n"
-        "Tapez **s** pour scanner instantanément."
-    )
+    await update.message.reply_text("⚡ Playbook Scanner Prêt. Envoyez la lettre s pour analyser.")
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
