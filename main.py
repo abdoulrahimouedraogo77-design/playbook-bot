@@ -9,7 +9,9 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "VOTRE_TOKEN_ICI")
+
+TOKEN = '8646433044:AAGlwrPeXXbnL-EGCKJBFPpZkEIJzWBRUuY'
+
 
 def scanner_playbook():
     """Scanne les tokens Solana respectant le Playbook Reversal"""
